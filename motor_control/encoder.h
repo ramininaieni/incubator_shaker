@@ -9,6 +9,7 @@ class Encoder {
     // TODO: deal with overflow, micros overflows after 70 minutes
     unsigned long lastQRotTime = micros();
     long lastQRot = 0;
+    unsigned int encStatesPerRot;
 
   public:
     float gearRatio;
@@ -19,14 +20,13 @@ class Encoder {
     int encState; // An index from 0 to 3 into the m0 and m1 state arrays
     int dir = 0;
     int numSkips = 0;
-    long qRots = 0; // Number of quarter rotations done
+    long qCycles = 0; // Number of quarter cycles done
     float RPM = 0;
-    int RPMAvgCycles = 1; // Number of rotations for calculating local rpm
-
-    Encoder(int encPin0, int encPin1, float inGearRatio) {
-      gearRatio = inGearRatio;
-      m0Pin = encPin0;
-      m1Pin = encPin1;
+    int numCyclesToAvg = 1; // Number of cycles for calculating local rpm 
+    float minRPM = 1;
+    Encoder(int m0Pin, int m1Pin, float gearRatio, int encStatesPerRot): m0Pin ( m0Pin ), m1Pin ( m1Pin ),
+    gearRatio ( gearRatio ), encStatesPerRot ( encStatesPerRot )
+    {
       getState();
 
     }
@@ -40,32 +40,36 @@ class Encoder {
         case 0 :
           break;
         case 1 :
-          qRots += 1;
+          qCycles += 1;
           dir = 1;
           break;
         case 3 :
-          qRots -= 1;
+          qCycles -= 1;
           dir = -1;
           break;
         case 2 :
           numSkips += 1;
           if (dir == 1) {
-            qRots += 2;
+            qCycles += 2;
           }
           else if (dir == -1) {
-            qRots -= 2;
+            qCycles -= 2;
           }
           break;
         default :
           Serial.println("Invalid encoder state! This should never happen!");
       }
-      if (abs(qRots - lastQRot) >= RPMAvgCycles * numEncStates) {
+      if (abs(qCycles - lastQRot) >= numCyclesToAvg * numEncStates) {
         unsigned long dt = micros() - lastQRotTime;
-        // There are 12 counts per revolution and we thought there were only four. That is why we
-        // divide by three here.
-        RPM = (RPMAvgCycles * 60 * pow(10 , 6)) / (dt * gearRatio * 3); // converting to RPM from microseconds
-        lastQRot = qRots;
+        float rotations = ((float)numEncStates/ encStatesPerRot)*(numCyclesToAvg)/gearRatio;
+        float minutes = (dt/(pow(10 , 6)*60.0));
+        RPM = rotations/minutes;
+        lastQRot = qCycles;
         lastQRotTime = micros();
+      }
+      else if ((micros() - lastQRotTime) > 100000) {
+        
+        RPM = 0;
       }
     }
 
