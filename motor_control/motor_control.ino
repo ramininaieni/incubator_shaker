@@ -1,5 +1,11 @@
+#include <Adafruit_PCT2075.h>
+
 #include "encoder.h"
 #include "pid_controller.h"
+
+// Make PTC2075 Instance
+Adafruit_PCT2075 PCT2075;
+
 // Assigning pins to the quadrature encoders for the motor
 int m0 = A0;
 int m1 = A1;
@@ -20,19 +26,30 @@ int plotWriteIndex = 0;
 void setup() {
   // put your setup code here, to run once:
 
-  pinMode(motorPin, OUTPUT);
-
-  analogWrite(motorPin, 100);
-
   Serial.begin(115200);
 
+  motorSetup();
+  tempSetup();
+  
+}
+
+void tempSetup(){
+  if (!PCT2075.begin()) {
+    Serial.println("Couldn't find PCT2075 chip");
+    while (1);
+  }
+  Serial.println("Found PCT2075 chip");
+}
+
+void motorSetup(){
+  pinMode(motorPin, OUTPUT);
+  analogWrite(motorPin, 0);
   pid.setTarget(10);
   enc.numCyclesToAvg = 2;
 
 }
 
-void loop() {
-  // shows that gear ratio is wrong and they sent Max the wrong motor with a gear ratio of like 1200 instead of 100
+void motorUpdate(){
   float res;
   int numAvg = 1000;
   float avgEnc = 0;
@@ -60,5 +77,16 @@ void loop() {
   Serial.print(res);
   Serial.print(',');
   Serial.println(pid.I_);
+}
+
+void tempUpdate(){
+  Serial.print("Temperature: "); Serial.print(PCT2075.getTemperature());Serial.println(" C");
+  delay(100);
+}
+
+void loop() {
+  
+//  motorUpdate();
+  tempUpdate();
 
 }
